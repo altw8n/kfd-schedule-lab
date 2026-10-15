@@ -13,22 +13,97 @@ object StudentCommandHandlers : CommandHandlers {
 }
 
 fun runPeriod(command: Command.Period): Int {
-    // TODO: parse every line of command.file, filter by command.from..command.to,
-    // print the selected sessions and Total, return 0 or 1.
-    println("Not implemented: period")
-    return 2
+    var selectedCount = 0L
+    var hasRejections = false
+    forEachScheduleLine(command.file) { number, line ->
+        when (val result = parseScheduleLine(number, line)) {
+            is ParseResult.Success -> {
+                val session = result.session
+                if (session.date in command.from..command.to) {
+                    println(formatPeriodSession(session))
+                    selectedCount += 1
+                }
+            }
+            is ParseResult.Rejected -> {
+                hasRejections = true
+            }
+        }
+    }
+    println("Total: $selectedCount")
+    return if (hasRejections) 1 else 0
 }
 
 fun runType(command: Command.ByType): Int {
-    // TODO: parse every line of command.file, filter by command.type,
-    // print the selected sessions with teachers and Total, return 0 or 1.
-    println("Not implemented: type")
-    return 2
+    var selectedCount = 0L
+    var hasRejections = false
+    forEachScheduleLine(command.file) { number, line ->
+        when (val result = parseScheduleLine(number, line)) {
+            is ParseResult.Success -> {
+                val session = result.session
+                if (sessionTypeOf(session) == command.type) {
+                    println(formatTypeSession(session))
+                    selectedCount += 1
+                }
+            }
+            is ParseResult.Rejected -> {
+                hasRejections = true
+            }
+        }
+    }
+    println("Total: $selectedCount")
+    return if (hasRejections) 1 else 0
 }
 
 fun runErrors(command: Command.Errors): Int {
-    // TODO: parse every line of command.file, print formatted rejections
-    // and Rejected: K of M, return 0 or 1.
-    println("Not implemented: errors")
-    return 2
+    var totalLines = 0L
+    var rejectedLines = 0L
+    forEachScheduleLine(command.file) { number, line ->
+        totalLines += 1
+        when (val result = parseScheduleLine(number, line)) {
+            is ParseResult.Success -> {
+            }
+            is ParseResult.Rejected -> {
+                rejectedLines += 1
+                println(formatRejection(result))
+            }
+        }
+    }
+    println("Rejected: $rejectedLines of $totalLines")
+    return if (rejectedLines == 0L) 0 else 1
 }
+
+private fun formatPeriodSession(session: Session): String {
+    val type = when (session) {
+        is Lecture -> SessionType.LECTURE
+        is Practice -> SessionType.PRACTICE
+        is Exam -> SessionType.EXAM
+        is Cancelled -> SessionType.CANCELLED
+    }
+    val location = when (session) {
+        is Lecture -> session.location
+        is Practice -> session.location
+        is Exam -> session.location
+        is Cancelled -> "-"
+    }
+    return "${session.date} | ${type.name} | ${session.topic} | $location"
+}
+
+private fun sessionTypeOf(session: Session): SessionType {
+    return when (session) {
+        is Lecture -> SessionType.LECTURE
+        is Practice -> SessionType.PRACTICE
+        is Exam -> SessionType.EXAM
+        is Cancelled -> SessionType.CANCELLED
+    }
+}
+
+private fun formatTypeSession(session: Session): String {
+    val teachers = when (session) {
+        is Lecture -> session.teachers.joinToString(", ")
+        is Practice -> session.teachers.joinToString(", ")
+        is Exam -> session.teachers.joinToString(", ")
+        is Cancelled -> "-"
+    }
+    return "${formatPeriodSession(session)} | $teachers"
+}
+
